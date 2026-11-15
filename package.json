@@ -1,0 +1,56 @@
+{
+  "name": "startup-city",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Helsinki's startup scene as a living 3D city. Built at Junction 2026.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"node --watch --import tsx server/index.ts\" \"vite --strictPort\"",
+    "dev:phone": "concurrently -k -n api,web \"node --watch --import tsx server/index.ts\" \"vite --strictPort --host 0.0.0.0\"",
+    "build": "npm run check && vite build",
+    "gcp-build": "vite build",
+    "prestart": "node scripts/ensure-build.mjs",
+    "start": "node --import tsx server/index.ts",
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test 'src/**/*.test.ts' 'server/**/*.test.ts'",
+    "test:browser": "node scripts/test-startup-city.mjs",
+    "research": "node --import tsx scripts/research-startups.ts",
+    "research:refresh": "node --import tsx scripts/research-startups.ts --refresh",
+    "films": "node --import tsx scripts/generate-films.ts",
+    "map:register": "node scripts/fetch-helsinki-register.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/google-sans-flex": "^5.3.2",
+    "@google/genai": "^3.2.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.7.0",
+    "context.dev": "^3.28.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "framer-motion": "^14.14.0",
+    "lucide-react": "^0.577.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "three": "^0.185.0",
+    "tsx": "^4.20.6",
+    "zod": "^4.1.12",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.17",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.18.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.185.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "concurrently": "^9.2.1",
+    "playwright": "^1.65.1",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6"
+  }
+}

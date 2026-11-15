@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+.DS_Store
+
+output/
+*.ods
+
+# Opt-in "In town" posts from visitors (personal data, never committed)
+data/in-town-posts.json
+# Raw map downloads, rebuilt by scripts/fetch-helsinki-osm.py and npm run map:register
+data/map/
