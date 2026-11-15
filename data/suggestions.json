@@ -1,0 +1,90 @@
+{
+ "generatedAt": "2026-11-15T00:31:46.348Z",
+ "model": "gemini-4-argon",
+ "items": [
+  {
+   "a": "verda",
+   "b": "upcloud",
+   "kind": "similar",
+   "reason": "Both companies provide cloud infrastructure and GPU hardware for running AI models."
+  },
+  {
+   "a": "emabler",
+   "b": "virta",
+   "kind": "similar",
+   "reason": "Both offer platforms that centralize the management, monitoring, and monetization of electric vehicle chargers."
+  },
+  {
+   "a": "supercell",
+   "b": "metacoregames",
+   "kind": "similar",
+   "reason": "Both are Helsinki-based mobile game developers creating entertainment for global audiences."
+  },
+  {
+   "a": "seppo",
+   "b": "3dbear",
+   "kind": "similar",
+   "reason": "Both build AI-enhanced 3D simulation environments for interactive learning and training."
+  },
+  {
+   "a": "nestai",
+   "b": "reorbit",
+   "kind": "similar",
+   "reason": "Both develop technology and connected systems focused on defence and national security."
+  },
+  {
+   "a": "inparallel",
+   "b": "happeo",
+   "kind": "similar",
+   "reason": "Both platforms organize internal company knowledge, decisions, and information to help employees collaborate."
+  },
+  {
+   "a": "varjo",
+   "b": "basemark",
+   "kind": "opportunity",
+   "reason": "Basemark's mission-critical AR software and runtimes could integrate with Varjo's high-fidelity mixed-reality headsets."
+  },
+  {
+   "a": "workfellow",
+   "b": "digitalworkforce",
+   "kind": "opportunity",
+   "reason": "Workfellow's process intelligence analytics could identify business processes for Digital Workforce's software agents to automate."
+  },
+  {
+   "a": "smartly",
+   "b": "supermetrics",
+   "kind": "opportunity",
+   "reason": "Supermetrics could pull live advertising data from campaigns managed on Smartly's platform into BI tools."
+  },
+  {
+   "a": "sharetribe",
+   "b": "bought",
+   "kind": "opportunity",
+   "reason": "Sharetribe provides marketplace software that could support a second-hand mobile marketplace like Bought."
+  },
+  {
+   "a": "spacent",
+   "b": "freska",
+   "kind": "opportunity",
+   "reason": "Freska could provide on-demand office cleaning services for the curated workspaces on Spacent's platform."
+  },
+  {
+   "a": "verda",
+   "b": "aiforia",
+   "kind": "opportunity",
+   "reason": "Aiforia could use Verda's GPU cloud platform to train and run its medical image analysis AI models."
+  },
+  {
+   "a": "saidot",
+   "b": "getjenny",
+   "kind": "opportunity",
+   "reason": "GetJenny could use Saidot's AI governance platform to manage compliance and risks for its customer-service chatbots."
+  },
+  {
+   "a": "aiven",
+   "b": "aito",
+   "kind": "opportunity",
+   "reason": "Aito's predictive database could integrate with Aiven's managed open-source data cloud to run predictions on live data."
+  }
+ ]
+}
