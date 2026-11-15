@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#06131a"/>
+      <stop offset="0.65" stop-color="#0b2a31"/>
+      <stop offset="1" stop-color="#103a3c"/>
+    </linearGradient>
+    <linearGradient id="aurora" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4ef0b0"/>
+      <stop offset="0.55" stop-color="#7de3bc"/>
+      <stop offset="1" stop-color="#a47bff"/>
+    </linearGradient>
+    <linearGradient id="curtain" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7de3bc" stop-opacity="0"/>
+      <stop offset="0.55" stop-color="#5cf2b0" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#5cf2b0" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="pin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b6f7dc"/>
+      <stop offset="1" stop-color="#4fd6a0"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+    <clipPath id="tile"><rect width="512" height="512" rx="116"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="512" height="512" fill="url(#sky)"/>
+    <!-- stars -->
+    <g fill="#e9fff6">
+      <circle cx="86" cy="70" r="2.2" opacity="0.8"/><circle cx="420" cy="58" r="2.6"/>
+      <circle cx="300" cy="44" r="1.6" opacity="0.7"/><circle cx="168" cy="40" r="1.4" opacity="0.6"/>
+      <circle cx="456" cy="140" r="1.6" opacity="0.6"/><circle cx="52" cy="160" r="1.5" opacity="0.5"/>
+    </g>
+    <!-- aurora curtain and ribbons -->
+    <path d="M-20 250 C 80 150, 170 230, 260 160 S 430 110, 540 170 L 540 330 L -20 330 Z" fill="url(#curtain)" opacity="0.9"/>
+    <path d="M-10 222 C 90 120, 170 210, 262 140 S 430 92, 530 150" fill="none" stroke="url(#aurora)" stroke-width="30" stroke-linecap="round" filter="url(#glow)" opacity="0.85"/>
+    <path d="M-10 222 C 90 120, 170 210, 262 140 S 430 92, 530 150" fill="none" stroke="url(#aurora)" stroke-width="9" stroke-linecap="round"/>
+    <path d="M10 270 C 110 196, 190 262, 280 206 S 440 168, 530 214" fill="none" stroke="url(#aurora)" stroke-width="5" stroke-linecap="round" opacity="0.55" filter="url(#soft)"/>
+    <!-- skyline -->
+    <g fill="#071419">
+      <rect x="40" y="356" width="58" height="200"/>
+      <rect x="104" y="318" width="46" height="240"/>
+      <path d="M156 336 L 188 300 L 220 336 L 220 560 L 156 560 Z"/>
+      <rect x="226" y="268" width="62" height="290"/>
+      <rect x="294" y="330" width="50" height="230"/>
+      <path d="M350 350 L 350 300 L 366 284 L 382 300 L 382 350 L 400 350 L 400 560 L 350 560 Z"/>
+      <rect x="406" y="372" width="70" height="190"/>
+      <rect x="0" y="440" width="512" height="80"/>
+    </g>
+    <!-- lit windows -->
+    <g fill="#ffc46b">
+      <rect x="54" y="378" width="10" height="12" rx="2"/><rect x="74" y="400" width="10" height="12" rx="2" opacity="0.7"/>
+      <rect x="116" y="342" width="9" height="12" rx="2"/><rect x="130" y="372" width="9" height="12" rx="2" opacity="0.6"/>
+      <rect x="176" y="356" width="10" height="12" rx="2" opacity="0.8"/><rect x="196" y="384" width="10" height="12" rx="2"/>
+      <rect x="240" y="300" width="11" height="13" rx="2"/><rect x="262" y="300" width="11" height="13" rx="2" opacity="0.55"/>
+      <rect x="240" y="330" width="11" height="13" rx="2" opacity="0.7"/><rect x="262" y="360" width="11" height="13" rx="2"/>
+      <rect x="306" y="352" width="10" height="12" rx="2" opacity="0.8"/><rect x="322" y="382" width="10" height="12" rx="2"/>
+      <rect x="360" y="368" width="9" height="12" rx="2"/><rect x="420" y="392" width="10" height="12" rx="2" opacity="0.75"/>
+      <rect x="444" y="414" width="10" height="12" rx="2"/>
+    </g>
+    <!-- map pin over the tallest building -->
+    <ellipse cx="257" cy="266" rx="22" ry="6" fill="#7de3bc" opacity="0.35" filter="url(#soft)"/>
+    <path d="M257 262 C 257 262, 213 214, 213 184 A 44 44 0 1 1 301 184 C 301 214, 257 262, 257 262 Z" fill="url(#pin)" stroke="#06131a" stroke-width="6"/>
+    <circle cx="257" cy="184" r="16" fill="#06131a"/>
+  </g>
+</svg>
