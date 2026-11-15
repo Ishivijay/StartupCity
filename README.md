@@ -2,6 +2,8 @@
 
 **Helsinki's startup scene as a living 3D city.** Fly over Helsinki under the northern lights, see every startup at its real address, and find out in one click who they are, whether they are hiring, and what was published about them this week.
 
+<p align="center"><b><a href="https://startup-city-49829111747.europe-west2.run.app">Open the live app</a></b> · <a href="https://youtu.be/3YMHtbJ9gyg">Watch the demo video</a></p>
+
 ![Startup City: the opening flight over Helsinki](docs/images/hero.gif)
 
 <sub>The opening flight, recorded in the app. [Full quality clip](docs/images/hero.webm).</sub>
@@ -34,6 +36,8 @@ There are also filters for hiring, recently funded and in the news, a live news 
 <p align="center"><img src="docs/images/phone.jpg" alt="Startup City on a phone" width="520"></p>
 
 ## Try it in a minute
+
+The quickest way is the [live app](https://startup-city-49829111747.europe-west2.run.app) (the first visit can take a few seconds while the server wakes up). To run it yourself:
 
 You need [Node.js](https://nodejs.org) 22.12 or newer.
 
