@@ -65,7 +65,7 @@ To try it on a phone on the same Wi-Fi, run `npm run dev:phone` and open `http:/
 
 The server serves the site and the API on `$PORT`, so it runs on any Node host or container platform.
 
-- **Google AI Studio (free):** import the GitHub repository in Build mode, add `GEMINI_API_KEY` and `CONTEXT_DEV_API_KEY` under Settings, Secrets, then Publish with a free `.ai.studio` address.
+- **Google AI Studio (free):** import the GitHub repository in Build mode, add `CONTEXT_DEV_API_KEY` under Settings, Secrets, then Publish with a free `.ai.studio` address. AI Studio supplies its own `GEMINI_API_KEY`; to use a different Gemini key, add it as the secret `STARTUP_CITY_GEMINI_KEY`, which takes priority.
 - **Cloud Run or any Docker host:** `docker build -t startup-city .` and run it with the two keys as environment variables.
 
 Without keys the hosted app still works on the saved data.

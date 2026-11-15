@@ -7,7 +7,9 @@ export const settings = {
   host: process.env.HOST?.trim() || (process.env.PORT ? '0.0.0.0' : '127.0.0.1'),
   port: Number(process.env.PORT || 8787),
   contextKey: process.env.CONTEXT_DEV_API_KEY?.trim(),
-  geminiKey: process.env.GEMINI_API_KEY?.trim(),
+  // STARTUP_CITY_GEMINI_KEY wins over GEMINI_API_KEY, so a host that injects its own
+  // GEMINI_API_KEY (Google AI Studio does) can still run on a key of your choice.
+  geminiKey: process.env.STARTUP_CITY_GEMINI_KEY?.trim() || process.env.GEMINI_API_KEY?.trim(),
   // Fast interpretation, per-company research answers, ecosystem-wide analysis.
   geminiModels: {
     fast: process.env.GEMINI_MODEL_FAST?.trim() || 'gemini-4-hydrogen',
