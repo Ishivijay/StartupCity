@@ -1,0 +1,878 @@
+import { AnimatePresence, motion } from 'framer-motion'
+import {
+  Award, Briefcase, Check, Music, ChevronDown, ChevronLeft as Back, Coins, Gauge, House, Keyboard, LayoutGrid, Link2, Maximize, Minus, Navigation2, Plus, Settings, Sparkle, Tag, Users, Volume2, ChevronLeft, ChevronRight, Clapperboard, Compass, Footprints, List, Loader2, MapPin, Network, Newspaper, Pause, Play,
+  RefreshCw, RotateCcw, Route as RouteIcon, Sparkles, Target, X,
+} from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  INDUSTRIES, emptyFilters, filtersActive, industryIds, isHiring, matchesFilters, recentFunding, recentNews,
+  type IndustryId, type SearchFilters, type Startup,
+} from '../shared/startup-schema'
+import {
+  CONNECTION_KINDS, MISSION_GOAL, badges, buildConnections, formatDate, initials, missionProgress, relativeDate, score,
+  type ConnectionKind,
+} from './logic'
+import { sound, useSound } from './audio'
+import { Clock } from './Clock'
+import { InTown } from './InTown'
+import { CutscenePlayer } from './Cutscene'
+import { Logo, Panel } from './Panel'
+import type { MarkerInput } from './scene'
+import { useCity } from './store'
+
+const placedOf = (startups: Startup[]) => startups.filter((s) => s.location)
+
+/** Keeps the 3D layer in step with the data: markers, building glow, links. */
+function useSceneSync() {
+  const scene = useCity((s) => s.scene)
+  const startups = useCity((s) => s.startups)
+  const filters = useCity((s) => s.filters)
+  const selectedBuilding = useCity((s) => s.selectedBuilding)
+  const flash = useCity((s) => s.flash)
+  const connectionsOn = useCity((s) => s.connectionsOn)
+  const connectionFocus = useCity((s) => s.connectionFocus)
+  const kinds = useCity((s) => s.kinds)
+  const suggestions = useCity((s) => s.suggestions)
+
+  useEffect(() => {
+    if (!scene) return
+    const active = filtersActive(filters)
+    const groups = new Map<string, Startup[]>()
+    for (const s of placedOf(startups)) groups.set(s.location!.buildingId, [...(groups.get(s.location!.buildingId) ?? []), s])
+    const now = Date.now()
+    const inputs: MarkerInput[] = [...groups.entries()].map(([buildingId, members]) => {
+      const hub = members.find((s) => s.industry === 'hub')
+      const companies = members.filter((s) => s.industry !== 'hub')
+      const matching = companies.filter((s) => matchesFilters(s, filters))
+      const shown = active && matching.length ? matching : companies.length ? companies : members
+      const lead = shown[0]
+      return {
+        buildingId,
+        x: lead.location!.x,
+        z: lead.location!.z,
+        title: hub ? hub.name : members.length > 1 ? `${lead.name} +${members.length - 1}` : lead.name,
+        subtitle: hub ? `${companies.length} startups on campus` : members.length > 1 ? `${members.length} companies` : INDUSTRIES[lead.industry].label,
+        color: INDUSTRIES[lead.industry].color,
+        logos: (hub ? [hub, ...shown] : shown).map((s) => ({ src: s.logo, initials: initials(s.name), dark: Boolean(s.logoOnDark) })),
+        count: hub ? shown.length + 1 : shown.length,
+        hiring: shown.some(isHiring),
+        funded: shown.some((s) => recentFunding(s)),
+        news: shown.some((s) => recentNews(s).length > 0),
+        launch: shown.some((s) => recentNews(s).some((n) => n.eventType === 'launch')),
+        partner: (() => { const p = members.find((s) => s.partner); return p ? { name: p.name, tier: p.partner!.tier, logo: p.partner!.logo ?? p.logo } : null })(),
+        state: selectedBuilding === buildingId ? 'selected' : (flash[buildingId] ?? 0) > now ? 'flash' : active ? (matching.length ? 'match' : 'dim') : 'normal',
+      }
+    })
+    scene.setMarkers(inputs)
+  }, [scene, startups, filters, selectedBuilding, flash])
+
+  // A refreshed building stops pulsing after its window.
+  useEffect(() => {
+    const times = Object.values(flash)
+    if (!times.length) return
+    const wait = Math.max(...times) - Date.now()
+    if (wait <= 0) return
+    const timer = setTimeout(() => useCity.setState({ flash: {} }), wait + 50)
+    return () => clearTimeout(timer)
+  }, [flash])
+
+  useEffect(() => {
+    if (!scene) return
+    if (!connectionsOn) { scene.setLinks([]); return }
+    const byId = new Map(startups.map((s) => [s.id, s]))
+    scene.setLinks(buildConnections(startups, suggestions.items)
+      .filter((c) => kinds[c.kind] && (!connectionFocus || c.a === connectionFocus || c.b === connectionFocus))
+      .map((c) => ({
+        a: byId.get(c.a)!.location!.buildingId,
+        b: byId.get(c.b)!.location!.buildingId,
+        color: CONNECTION_KINDS[c.kind].color,
+        dashed: CONNECTION_KINDS[c.kind].inferred,
+        width: c.kind === 'industry' ? 1.4 : 2.2,
+      })))
+  }, [scene, startups, suggestions, connectionsOn, connectionFocus, kinds])
+}
+
+/** The Gemini question bar is switched off for now; filters, profiles and cutscenes still use Gemini. */
+const SEARCH_ENABLED = false
+
+const GRAPHICS = [
+  { id: 'auto', label: 'Auto', hint: 'Adjusts to this device' },
+  { id: 'smooth', label: 'Smooth', hint: 'Fastest, shorter view distance' },
+  { id: 'balanced', label: 'Balanced', hint: 'Most laptops' },
+  { id: 'detailed', label: 'Detailed', hint: 'Whole district, full resolution' },
+] as const
+
+function SettingsButton() {
+  const graphics = useCity((s) => s.graphics)
+  const labels = useCity((s) => s.labels)
+  const audio = useSound()
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (event: PointerEvent) => { if (!box.current?.contains(event.target as Node)) setOpen(false) }
+    window.addEventListener('pointerdown', close)
+    return () => window.removeEventListener('pointerdown', close)
+  }, [open])
+  return (
+    <div className="sc-graphics" ref={box}>
+      {open && (
+        <div className="sc-graphics-panel sc-glass" aria-label="Settings">
+          <h2>Settings</h2>
+          <h3>Graphics</h3>
+          <div role="radiogroup" aria-label="Graphics">
+            {GRAPHICS.map((g) => (
+              <button key={g.id} type="button" role="radio" aria-checked={graphics === g.id} onClick={() => useCity.getState().setGraphics(g.id)}>
+                <b>{g.label}</b><span className="sc-muted">{g.hint}</span>
+              </button>
+            ))}
+          </div>
+          <label className="sc-check"><input type="checkbox" role="switch" checked={labels} onChange={(event) => useCity.getState().setLabels(event.target.checked)} /><Tag size={15} /> Company names on the map</label>
+          <h3>Sound</h3>
+          <label className="sc-check"><input type="checkbox" role="switch" checked={audio.sound} onChange={(event) => sound.set({ sound: event.target.checked })} /><Volume2 size={15} /> Sound <span className="sc-muted">M</span></label>
+          <label className="sc-check"><input type="checkbox" role="switch" checked={audio.music} disabled={!audio.sound} onChange={(event) => sound.set({ music: event.target.checked })} /><Music size={15} /> Background music</label>
+          <label className="sc-range"><span>Music volume</span><input type="range" min={0} max={1} step={0.05} value={audio.volume} disabled={!audio.sound || !audio.music} aria-label="Music volume" onChange={(event) => sound.set({ volume: Number(event.target.value) })} /></label>
+          <h3>More</h3>
+          <button type="button" className="sc-text-btn" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen?.() }}><Maximize size={15} /> Full screen</button>
+          <button type="button" className="sc-text-btn" onClick={() => { setOpen(false); useCity.setState({ shortcuts: true }) }}><Keyboard size={15} /> Keyboard shortcuts</button>
+          <button type="button" className="sc-text-btn" onClick={() => { setOpen(false); useCity.getState().playCutscene({ kind: 'intro' }) }}><Clapperboard size={15} /> Play the intro film</button>
+        </div>
+      )}
+      <button type="button" className="sc-glass" aria-label="Settings" aria-expanded={open} title="Settings" onClick={() => setOpen(!open)}><Settings size={18} /></button>
+    </div>
+  )
+}
+
+const SHORTCUTS: [string, string][] = [
+  ['Drag', 'Move the map'], ['Scroll or pinch', 'Zoom towards the cursor'], ['Double-click', 'Zoom in there'], ['Right-drag', 'Turn and tilt'],
+  ['+ / −', 'Zoom'], ['W A S D', 'Move the map, or ride at street level'], ['Q / E', 'Turn the map'], ['Tab', 'Switch city view and street level'],
+  ['E', 'Visit the startup in front of you'], ['F', 'Walk or ride'], ['Esc', 'Close, clear the route, or skip a cutscene'], ['?', 'This list'],
+]
+
+function Shortcuts() {
+  const open = useCity((s) => s.shortcuts)
+  if (!open) return null
+  return (
+    <div className="sc-modal-backdrop" onPointerDown={() => useCity.setState({ shortcuts: false })}>
+      <section className="sc-modal sc-glass" role="dialog" aria-label="Keyboard shortcuts" onPointerDown={(event) => event.stopPropagation()}>
+        <header><h2>Keyboard and mouse</h2><button type="button" className="sc-icon" aria-label="Close" onClick={() => useCity.setState({ shortcuts: false })}><X size={16} /></button></header>
+        <dl>{SHORTCUTS.map(([key, what]) => <div key={key}><dt><kbd>{key}</kbd></dt><dd>{what}</dd></div>)}</dl>
+      </section>
+    </div>
+  )
+}
+
+function RouteBar() {
+  const route = useCity((s) => s.route)
+  const startups = useCity((s) => s.startups)
+  const mode = useCity((s) => s.mode)
+  const scene = useCity((s) => s.scene)
+  if (!route) return null
+  const { clearRoute, setMode } = useCity.getState()
+  const km = route.metres >= 1000 ? `${(route.metres / 1000).toFixed(1)} km` : `${Math.round(route.metres / 10) * 10} m`
+  const minutes = Math.max(1, Math.round(route.metres / 80))
+  const target = 'targetId' in route ? startups.find((s) => s.id === route.targetId) : null
+  return (
+    <div className="sc-route-bar sc-glass" role="status">
+      <RouteIcon size={18} />
+      <p><b>{target ? `Route to ${target.name}` : `Route past ${'tour' in route ? route.tour.length : 0} companies`}</b><span className="sc-muted">{km}, about {minutes} min on foot</span></p>
+      {target && mode === 'explorer' && <button type="button" className="sc-text-btn" onClick={() => setMode('street')}>Street level</button>}
+      {mode === 'street' && <button type="button" className="sc-text-btn" onClick={() => { scene?.enterExplorer(undefined, 1.4) }}>Overview</button>}
+      <button type="button" className="sc-text-btn" onClick={clearRoute}><X size={15} /> Clear</button>
+    </div>
+  )
+}
+
+function MapControls() {
+  const scene = useCity((s) => s.scene)
+  const mode = useCity((s) => s.mode)
+  const [heading, setHeading] = useState(0)
+  useEffect(() => {
+    if (!scene || mode !== 'explorer') return
+    const timer = setInterval(() => setHeading(scene.heading()), 120)
+    return () => clearInterval(timer)
+  }, [scene, mode])
+  if (!scene || mode !== 'explorer') return null
+  return (
+    <div className="sc-map-controls" role="group" aria-label="Map controls">
+      <SettingsButton />
+      <button type="button" className="sc-glass" aria-label="Recenter" title="Show the whole district" onClick={() => scene.flyHome()}><House size={18} /></button>
+      <button type="button" className="sc-glass" aria-label="Face north" title="Face north" onClick={() => scene.resetNorth()}>
+        <Navigation2 size={18} style={{ transform: `rotate(${(-heading * 180) / Math.PI}deg)` }} />
+      </button>
+      <div className="sc-zoom sc-glass">
+        <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => scene.zoomAt(0.6, undefined, undefined, true)}><Plus size={18} /></button>
+        <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => scene.zoomAt(1 / 0.6, undefined, undefined, true)}><Minus size={18} /></button>
+      </div>
+    </div>
+  )
+}
+
+function SearchBar() {
+  const query = useCity((s) => s.query)
+  const search = useCity((s) => s.search)
+  const filters = useCity((s) => s.filters)
+  const { ask, clearSearch } = useCity.getState()
+  const active = filtersActive(filters)
+  return (
+    <form className="sc-search sc-glass" role="search" onSubmit={(event) => { event.preventDefault(); void ask(query) }}>
+      {search.status === 'loading' ? <Loader2 size={18} className="sc-spin sc-ai-icon" /> : <Sparkles size={18} className="sc-ai-icon" />}
+      <input
+        id="sc-query" value={query} maxLength={240} autoComplete="off" spellCheck={false}
+        onChange={(event) => useCity.setState({ query: event.target.value })}
+        placeholder="Ask anything about Helsinki startups..." aria-label="Ask anything about Helsinki startups"
+      />
+      {(query || active) && <button type="button" className="sc-icon" onClick={clearSearch} aria-label="Clear search"><X size={16} /></button>}
+      <button type="submit" className="sc-go" disabled={!query.trim() || search.status === 'loading'}>Ask</button>
+    </form>
+  )
+}
+
+function Feed() {
+  const startups = useCity((s) => s.startups)
+  const freshNews = useCity((s) => s.freshNews)
+  const dataMode = useCity((s) => s.dataMode)
+  const meta = useCity((s) => s.meta)
+  const items = useMemo(() => startups
+    .flatMap((s) => s.news.map((n) => ({ n, s })))
+    .sort((a, b) => Number(Boolean(freshNews[b.n.id])) - Number(Boolean(freshNews[a.n.id])) || Date.parse(b.n.publishedAt ?? '1970') - Date.parse(a.n.publishedAt ?? '1970'))
+    .slice(0, 30), [startups, freshNews])
+  const view = (s: Startup) => {
+    const { select, scene, mode } = useCity.getState()
+    select(s.location?.buildingId ?? null, s.id, s.location ? 'map' : null)
+    if (s.location && mode === 'explorer') scene?.focusBuilding(s.location.buildingId)
+  }
+  return (
+    <div className="sc-drawer-body">
+      <p className="sc-muted">
+        {dataMode === 'live'
+          ? `Read through Context.dev ${relativeDate(meta?.lastLiveAt ?? null)}.`
+          : `Saved copy from ${formatDate(meta?.snapshotAt)}. Refresh startup signals for a new reading.`}
+        {' '}Only published headlines appear here.
+      </p>
+      {items.length === 0 && <p className="sc-missing">No headlines matched with confidence yet.</p>}
+      <ul className="sc-feed">
+        <AnimatePresence initial={false}>
+          {items.map(({ n, s }) => (
+            <motion.li key={n.id} layout initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className={freshNews[n.id] ? 'fresh' : ''}>
+              <Logo startup={s} size={32} />
+              <div>
+                <p className="sc-feed-meta">
+                  <b>{s.name}</b>
+                  {n.eventType !== 'other' && <span className={`sc-event ${n.eventType}`}>{EVENT_LABEL[n.eventType]}</span>}
+                  {freshNews[n.id] && <span className="sc-event new">New</span>}
+                </p>
+                <a href={n.url} target="_blank" rel="noopener noreferrer">{n.title}</a>
+                <p className="sc-muted">{n.sourceName}, {formatDate(n.publishedAt)}</p>
+                <div className="sc-row-actions">
+                  <button type="button" className="sc-text-btn" onClick={() => view(s)}>{s.location ? <><MapPin size={14} /> View on map</> : <><List size={14} /> Open profile</>}</button>
+                  {s.location && <button type="button" className="sc-text-btn" onClick={() => useCity.getState().playCutscene({ kind: 'signal', id: n.id })}><Clapperboard size={14} /> Watch</button>}
+                </div>
+              </div>
+            </motion.li>
+          ))}
+        </AnimatePresence>
+      </ul>
+    </div>
+  )
+}
+
+const EVENT_LABEL = { funding: 'Funding', hiring: 'Hiring', launch: 'Launch', partnership: 'Partnership', other: '' } as const
+
+function Missions() {
+  const startups = useCity((s) => s.startups)
+  const discovered = useCity((s) => s.discovered)
+  const progress = missionProgress(startups, discovered)
+  const collection = startups.filter((s) => discovered[s.id])
+  const points = score(startups, discovered)
+  const hint = (id: string) => {
+    const store = useCity.getState()
+    const mission = progress.find((m) => m.id === id)!
+    const targets = placedOf(startups).filter((s) => s.industry !== 'hub' && mission.test(s) && !discovered[s.id])
+    if (!targets.length) { store.notify('You have already found every matching company on the map.'); return }
+    store.setFilters({ industries: id === 'ai' ? ['ai'] : [], hiring: id === 'hiring', recentlyFunded: id === 'funded', hasNews: false, keywords: [], roleKeywords: [] }, '')
+    useCity.setState({ search: { status: 'idle' } })
+    if (store.mode === 'explorer') store.scene?.frameBounds(targets.map((s) => s.location!))
+  }
+  return (
+    <div className="sc-drawer-body">
+      <p className="sc-muted">Visit a startup to add it to your collection: click its building from above, or walk up to it and press <kbd>E</kbd>. You have {points} points.</p>
+      <ul className="sc-missions">
+        {progress.map((m) => (
+          <li key={m.id} className={m.done ? 'done' : ''}>
+            <h3>{m.done && <Check size={16} />} {m.title}</h3>
+            <p className="sc-muted">{m.brief}</p>
+            <div className="sc-progress" role="progressbar" aria-valuemin={0} aria-valuemax={MISSION_GOAL} aria-valuenow={m.count}><i style={{ width: `${(m.count / MISSION_GOAL) * 100}%` }} /></div>
+            <div className="sc-row-actions">
+              <span>{m.count} of {MISSION_GOAL}{m.done ? ', 500 points earned' : ''}</span>
+              {!m.done && <button type="button" className="sc-text-btn" onClick={() => hint(m.id)}><Target size={14} /> Show candidates</button>}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <h3 className="sc-subhead">Badges</h3>
+      <ul className="sc-badges-grid">
+        {badges(startups, discovered).map((b) => <li key={b.name} className={b.earned ? 'earned' : ''} title={b.how}><Award size={16} />{b.name}</li>)}
+      </ul>
+      <h3 className="sc-subhead">Your collection ({collection.length})</h3>
+      {collection.length === 0 ? <p className="sc-missing">Nothing found yet.</p> : (
+        <ul className="sc-collection">
+          {collection.map((s) => (
+            <li key={s.id}><button type="button" title={s.name} onClick={() => { useCity.getState().select(s.location?.buildingId ?? null, s.id, null); useCity.getState().scene?.focusBuilding(s.location?.buildingId ?? '') }}><Logo startup={s} size={36} /></button></li>
+          ))}
+        </ul>
+      )}
+      {collection.length > 0 && <button type="button" className="sc-text-btn" onClick={() => { try { localStorage.removeItem('startup-city-discoveries-v1') } catch { /* nothing stored */ } useCity.setState({ discovered: {} }) }}>Reset progress</button>}
+    </div>
+  )
+}
+
+const TIER_ORDER = ['organiser', 'featured', 'main', 'challenge', 'tech', 'supporter', 'listed']
+const TIER_LABEL: Record<string, string> = { organiser: 'Organiser', featured: 'Featured partner', main: 'Main partner', challenge: 'Challenge partner', tech: 'Tech partner', supporter: 'Supporter', listed: 'Partner' }
+
+function Directory() {
+  const startups = useCity((s) => s.startups)
+  const filters = useCity((s) => s.filters)
+  const active = filtersActive(filters)
+  const list = startups.filter((s) => s.industry !== 'hub' && (!active || matchesFilters(s, filters)))
+  const row = (s: Startup) => (
+    <li key={s.id}>
+      <button type="button" onClick={() => { const store = useCity.getState(); store.select(s.location?.buildingId ?? null, s.id, s.location ? 'map' : null); if (s.location && store.mode === 'explorer') store.scene?.focusBuilding(s.location.buildingId) }}>
+        <Logo startup={s} size={32} />
+        <span>
+          <b>{s.name}</b>
+          <span className="sc-muted">{s.location ? s.location.address : s.outsideDistrict && s.reportedAddress ? `${s.reportedAddress}, ${s.municipality}` : INDUSTRIES[s.industry].label}</span>
+        </span>
+        {isHiring(s) && <span className="sc-event hiring">Hiring</span>}
+      </button>
+    </li>
+  )
+  const partners = startups.filter((s) => s.partner && (!active || matchesFilters(s, filters)))
+    .sort((a, b) => TIER_ORDER.indexOf(a.partner!.tier) - TIER_ORDER.indexOf(b.partner!.tier) || Number(Boolean(b.location)) - Number(Boolean(a.location)))
+  const companies = list.filter((s) => s.industry !== 'partner')
+  const placed = companies.filter((s) => s.location)
+  const outside = companies.filter((s) => !s.location && s.outsideDistrict)
+  const unknown = companies.filter((s) => !s.location && !s.outsideDistrict)
+  return (
+    <div className="sc-drawer-body">
+      {active && <p className="sc-muted">Showing companies that match your search.</p>}
+      {partners.length > 0 && <section className="sc-partner-section">
+        <h3 className="sc-subhead">Junction 2026 partners ({partners.length})</h3>
+        <p className="sc-muted">{partners.filter((s) => s.location).length} have offices in this part of Helsinki and glow on the map. The rest are listed with their home city.</p>
+        <button type="button" className="sc-text-btn" onClick={() => useCity.getState().playCutscene({ kind: 'partners' })}><Clapperboard size={14} /> Partner tour</button>
+        <ul className="sc-directory">
+          {partners.map((s) => (
+            <li key={s.id}>
+              <button type="button" onClick={() => { const store = useCity.getState(); store.select(s.location?.buildingId ?? null, s.id, s.location ? 'map' : null); if (s.location && store.mode === 'explorer') store.scene?.focusBuilding(s.location.buildingId) }}>
+                <span className="sc-logo-box dark sc-partner-thumb" style={{ width: 32, height: 32 }}>{s.partner!.logo || s.logo ? <img src={s.partner!.logo ?? s.logo!} alt="" /> : <b>{initials(s.name)}</b>}</span>
+                <span><b>{s.name}</b><span className="sc-muted">{TIER_LABEL[s.partner!.tier] ?? 'Partner'}, {s.location ? s.location.address : s.outsideDistrict && s.reportedAddress ? `${s.reportedAddress}, ${s.municipality}` : s.headquarters ?? 'location not published'}</span></span>
+                {s.location && <span className="sc-event partner">On the map</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>}
+      <h3 className="sc-subhead">On the map ({placed.length})</h3>
+      <ul className="sc-directory">{placed.map(row)}</ul>
+      {outside.length > 0 && <>
+        <h3 className="sc-subhead">Outside the 3D district ({outside.length})</h3>
+        <p className="sc-muted">The address is confirmed in the Helsinki region address register, but the building is beyond the modelled area.</p>
+        <ul className="sc-directory">{outside.map(row)}</ul>
+      </>}
+      {unknown.length > 0 && <>
+        <h3 className="sc-subhead">Address not confirmed ({unknown.length})</h3>
+        <p className="sc-muted">No address could be matched to a building, so these companies are not placed on the map.</p>
+        <ul className="sc-directory">{unknown.map(row)}</ul>
+      </>}
+    </div>
+  )
+}
+
+function ConnectionLegend() {
+  const on = useCity((s) => s.connectionsOn)
+  const focus = useCity((s) => s.connectionFocus)
+  const kinds = useCity((s) => s.kinds)
+  const startups = useCity((s) => s.startups)
+  const suggestions = useCity((s) => s.suggestions)
+  const suggesting = useCity((s) => s.suggesting)
+  const gemini = useCity((s) => s.meta?.geminiAvailable)
+  const all = useMemo(() => buildConnections(startups, suggestions.items), [startups, suggestions])
+  if (!on) return null
+  const scoped = all.filter((c) => !focus || c.a === focus || c.b === focus)
+  const focusName = startups.find((s) => s.id === focus)?.name
+  return (
+    <motion.section className="sc-legend-card sc-glass" aria-label="Connections" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+      <header>
+        <h2>{focusName ? `${focusName}'s connections` : 'Connections'}</h2>
+        <button type="button" className="sc-icon" aria-label="Hide connections" onClick={() => useCity.setState({ connectionsOn: false, connectionFocus: null })}><X size={16} /></button>
+      </header>
+      {focus && <button type="button" className="sc-text-btn" onClick={() => useCity.setState({ connectionFocus: null })}>Show the whole network</button>}
+      <h3>From the records</h3>
+      {(Object.keys(CONNECTION_KINDS) as ConnectionKind[]).filter((k) => !CONNECTION_KINDS[k].inferred).map((k) => <KindToggle key={k} kind={k} on={kinds[k]} count={scoped.filter((c) => c.kind === k).length} />)}
+      <h3 className="sc-ai-text">Suggested by Gemini</h3>
+      <p className="sc-muted">Ideas, not verified facts.</p>
+      {(Object.keys(CONNECTION_KINDS) as ConnectionKind[]).filter((k) => CONNECTION_KINDS[k].inferred).map((k) => <KindToggle key={k} kind={k} on={kinds[k]} count={scoped.filter((c) => c.kind === k).length} />)}
+      <p className="sc-muted">
+        {suggestions.generatedAt ? `Generated by ${suggestions.model} on ${formatDate(suggestions.generatedAt)}.` : 'Nothing suggested yet.'}
+        {gemini && <> <button type="button" className="sc-text-btn" disabled={suggesting} onClick={() => void useCity.getState().suggestConnections()}>{suggesting ? 'Asking Gemini' : suggestions.generatedAt ? 'Regenerate' : 'Suggest with Gemini'}</button></>}
+      </p>
+    </motion.section>
+  )
+}
+
+function KindToggle({ kind, on, count }: { kind: ConnectionKind; on: boolean; count: number }) {
+  const info = CONNECTION_KINDS[kind]
+  return (
+    <label className="sc-kind" title={info.hint}>
+      <input type="checkbox" role="switch" checked={on} onChange={() => useCity.setState({ kinds: { ...useCity.getState().kinds, [kind]: !on } })} />
+      <i className={info.inferred ? 'dashed' : ''} style={{ ['--c' as string]: info.color }} />
+      <span>{info.label}</span><span className="sc-muted">{count}</span>
+    </label>
+  )
+}
+
+// Guided demo
+
+const STEP_SECONDS = 10
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+function demoTarget() {
+  const { startups } = useCity.getState()
+  const rank = (s: Startup) => (s.news.some((n) => n.eventType === 'funding') ? 8 : 0) + (s.news.length ? 4 : 0) + (recentFunding(s) ? 2 : 0) + (isHiring(s) ? 1 : 0)
+  return placedOf(startups).filter((s) => s.industry === 'ai').sort((a, b) => rank(b) - rank(a))[0] ?? placedOf(startups).find((s) => s.industry !== 'hub')
+}
+
+const DEMO_STEPS: { title: string; text: () => string; run: () => void | Promise<void> }[] = [
+  {
+    title: 'Helsinki in 3D',
+    text: () => 'Every building, street, park and shoreline comes from OpenStreetMap at its real coordinates.',
+    run: () => {
+      const store = useCity.getState()
+      store.clearSearch()
+      store.select(null)
+      useCity.setState({ connectionsOn: false, connectionFocus: null, panel: null })
+      store.scene?.enterExplorer()
+      store.scene?.flyHome()
+    },
+  },
+  {
+    title: 'Filter the city',
+    text: () => 'Pick a category, here AI and data, and only those companies stay lit.',
+    run: () => {
+      const store = useCity.getState()
+      store.setFilters({ industries: ['ai'], hiring: false, recentlyFunded: false, hasNews: false, keywords: [], roleKeywords: [] }, '')
+    },
+  },
+  {
+    title: 'Matching buildings light up',
+    text: () => {
+      const { startups, filters } = useCity.getState()
+      const n = placedOf(startups).filter((s) => matchesFilters(s, filters)).length
+      return `${n} AI companies light up at their registered addresses, and a route links them along real streets.`
+    },
+    run: () => {
+      const store = useCity.getState()
+      if (!filtersActive(store.filters)) store.setFilters({ ...store.filters, industries: ['ai'] })
+      const matches = placedOf(useCity.getState().startups).filter((s) => matchesFilters(s, useCity.getState().filters))
+      store.scene?.frameBounds(matches.map((s) => s.location!))
+      store.tourResults()
+    },
+  },
+  {
+    title: 'Fly to a startup building',
+    text: () => { const t = demoTarget(); return t ? `${t.name}, ${t.location!.address}. The address is matched to a mapped building before anything is placed.` : '' },
+    run: () => { const t = demoTarget(); if (t) useCity.getState().scene?.focusBuilding(t.location!.buildingId, 280) },
+  },
+  {
+    title: 'Open the company profile',
+    text: () => 'Each fact links to where it came from. Facts nobody has published stay empty.',
+    run: () => { const t = demoTarget(); if (t) useCity.getState().select(t.location!.buildingId, t.id) },
+  },
+  {
+    title: 'Retrieve fresh signals with Context.dev',
+    text: () => {
+      const refresh = useCity.getState().refresh
+      return refresh.status === 'error' ? `${refresh.message} The demo carries on with the saved copy.` : 'Context.dev reads the company\'s news coverage and careers page again, now.'
+    },
+    run: async () => { const t = demoTarget(); if (t) await useCity.getState().refreshSignals([t.id]) },
+  },
+  {
+    title: 'News becomes a cutscene',
+    text: () => {
+      const t = demoTarget()
+      const fresh = t && useCity.getState().startups.find((s) => s.id === t.id)
+      const item = fresh?.news.find((n) => n.eventType !== 'other') ?? fresh?.news[0]
+      return item
+        ? `${item.sourceName} reported "${item.title}". Gemini writes and voices a short scene from that headline and the company record.`
+        : `Gemini writes and voices a short scene about ${t?.name ?? 'this company'} from its record.`
+    },
+    run: () => {
+      const t = demoTarget()
+      if (!t) return
+      const fresh = useCity.getState().startups.find((s) => s.id === t.id)
+      const item = fresh?.news.find((n) => n.eventType !== 'other') ?? fresh?.news[0]
+      useCity.setState({ flash: { ...useCity.getState().flash, [t.location!.buildingId]: Date.now() + 12_000 } })
+      useCity.getState().playCutscene(item ? { kind: 'signal', id: item.id } : { kind: 'company', id: t.id })
+    },
+  },
+  {
+    title: 'See how startups connect',
+    text: () => 'Solid lines come from the records: shared investors, joint announcements, same industry. Dashed lines are Gemini suggestions.',
+    run: () => {
+      const t = demoTarget()
+      const store = useCity.getState()
+      useCity.setState({ panel: null })
+      store.scene?.setRoutes([])
+      useCity.setState({ route: null, connectionsOn: true, connectionFocus: null })
+      store.select(null)
+      store.setFilters({ industries: [], hiring: false, recentlyFunded: false, hasNews: false, keywords: [], roleKeywords: [] }, '')
+      useCity.setState({ search: { status: 'idle' } })
+      void t
+      store.scene?.flyTo({ tx: -330, tz: 230, dist: 1750, pitch: 0.82, yaw: 0.1 })
+    },
+  },
+  {
+    title: 'Start a discovery mission',
+    text: () => 'Find 3 AI startups, 3 that are hiring and 3 recently funded. Explore from above, or walk the streets and press E.',
+    run: () => {
+      const store = useCity.getState()
+      useCity.setState({ connectionsOn: false, connectionFocus: null, panel: 'missions' })
+      store.clearSearch()
+      store.scene?.flyHome()
+    },
+  },
+]
+
+async function startDemo() {
+  const store = useCity.getState()
+  if (!store.scene) return
+  if (!store.scene.entered) {
+    document.getElementById('enter')?.click()
+    for (let i = 0; i < 200 && useCity.getState().mode !== 'explorer'; i++) await wait(100)
+  } else if (useCity.getState().mode !== 'explorer') store.scene.enterExplorer()
+  store.scene.skipOpening()
+  useCity.setState({ demo: { active: true, step: 0, paused: false } })
+}
+
+function DemoBar() {
+  const demo = useCity((s) => s.demo)
+  const refresh = useCity((s) => s.refresh)
+  const startups = useCity((s) => s.startups)
+  const filters = useCity((s) => s.filters)
+  const [elapsed, setElapsed] = useState(0)
+  const go = (step: number) => { setElapsed(0); useCity.setState({ demo: { active: true, step: Math.max(0, Math.min(DEMO_STEPS.length - 1, step)), paused: useCity.getState().demo.paused } }) }
+
+  useEffect(() => {
+    if (!demo.active) return
+    setElapsed(0)
+    void DEMO_STEPS[demo.step].run()
+  }, [demo.active, demo.step])
+
+  const cinema = useCity((s) => Boolean(s.cutscene))
+  useEffect(() => {
+    if (!demo.active || demo.paused || cinema) return
+    const timer = setInterval(() => setElapsed((value) => value + 0.1), 100)
+    return () => clearInterval(timer)
+  }, [demo.active, demo.paused, demo.step, cinema])
+
+  useEffect(() => {
+    if (demo.active && !demo.paused && elapsed >= STEP_SECONDS && demo.step < DEMO_STEPS.length - 1) go(demo.step + 1)
+  }, [elapsed, demo])
+
+  if (!demo.active) return null
+  const step = DEMO_STEPS[demo.step]
+  // Re-read the caption when the data it describes changes.
+  void refresh; void startups; void filters
+  return (
+    <motion.div className="sc-demo sc-glass" initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} role="region" aria-label="Guided demo">
+      <span className="sc-demo-progress" aria-hidden="true"><i style={{ width: `${Math.min(100, ((demo.step + Math.min(elapsed / STEP_SECONDS, 1)) / DEMO_STEPS.length) * 100)}%` }} /></span>
+      <div className="sc-demo-text">
+        <h2><span className="sc-muted">{demo.step + 1} of {DEMO_STEPS.length}</span> {step.title}</h2>
+        <p>{step.text()}</p>
+      </div>
+      <div className="sc-demo-controls">
+        <button type="button" onClick={() => go(demo.step - 1)} disabled={demo.step === 0} aria-label="Previous step"><ChevronLeft size={16} /><span>Previous</span></button>
+        <button type="button" onClick={() => useCity.setState({ demo: { ...demo, paused: !demo.paused } })} aria-label={demo.paused ? 'Resume' : 'Pause'}>{demo.paused ? <Play size={15} /> : <Pause size={15} />}<span>{demo.paused ? 'Resume' : 'Pause'}</span></button>
+        <button type="button" onClick={() => go(demo.step + 1)} disabled={demo.step === DEMO_STEPS.length - 1} aria-label="Next step"><span>Next</span><ChevronRight size={16} /></button>
+        <button type="button" onClick={() => go(0)} aria-label="Restart demo"><RotateCcw size={14} /><span>Restart</span></button>
+        <button type="button" onClick={() => useCity.setState({ demo: { active: false, step: 0, paused: false } })} aria-label="End demo"><X size={15} /></button>
+      </div>
+    </motion.div>
+  )
+}
+
+// Sidebar: one calm card for everything that used to be spread across the screen.
+
+type FilterRow = { id: string; label: string; hint: string; filters: SearchFilters; dot?: string; icon?: ReactNode }
+
+function Sidebar() {
+  const startups = useCity((s) => s.startups)
+  const filters = useCity((s) => s.filters)
+  const panel = useCity((s) => s.panel)
+  const discovered = useCity((s) => s.discovered)
+  const connectionsOn = useCity((s) => s.connectionsOn)
+  const route = useCity((s) => s.route)
+  const dataMode = useCity((s) => s.dataMode)
+  const meta = useCity((s) => s.meta)
+  const [collapsed, setCollapsed] = useState(() => matchMedia('(max-width: 720px)').matches)
+  const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const mode = useCity((s) => s.mode)
+  // At street level the minimap (bottom left) shows the route, so the menu folds away; it returns from above.
+  const openBeforeStreet = useRef(true)
+  useEffect(() => {
+    if (mode === 'street') { openBeforeStreet.current = !collapsed; setCollapsed(true) }
+    else if (openBeforeStreet.current && !matchMedia('(max-width: 720px)').matches) setCollapsed(false)
+  }, [mode])
+  const { setFilters, clearSearch, toggleConnections, tourResults } = useCity.getState()
+  const placed = useMemo(() => startups.filter((s) => s.location && s.industry !== 'hub'), [startups])
+  const onMap = (f: SearchFilters) => placed.filter((s) => matchesFilters(s, f)).length
+  const only = (patch: Partial<SearchFilters>): SearchFilters => ({ ...emptyFilters, ...patch })
+  const same = (a: SearchFilters, b: SearchFilters) => JSON.stringify({ ...emptyFilters, ...a }) === JSON.stringify({ ...emptyFilters, ...b })
+  const categories = industryIds.filter((id) => id !== 'hub' && id !== 'partner' && placed.some((s) => s.industry === id))
+  const rows: FilterRow[] = [
+    { id: 'partners', label: 'Junction 2026 partners', hint: 'Partners of Europe\'s biggest hackathon with offices in this part of Helsinki.', filters: only({ partners: true }), icon: <Sparkle size={16} /> },
+    { id: 'hiring', label: 'Hiring now', hint: 'Companies whose own careers page lists open roles.', filters: only({ hiring: true }), icon: <Briefcase size={16} /> },
+    { id: 'funded', label: 'Recently funded', hint: 'A dated, sourced funding round in the last 18 months.', filters: only({ recentlyFunded: true }), icon: <Coins size={16} /> },
+    { id: 'news', label: 'In the news', hint: 'Published headlines from the last four months.', filters: only({ hasNews: true }), icon: <Newspaper size={16} /> },
+  ]
+  const active = filtersActive(filters)
+  const activeCategory = filters.industries.length === 1 && same(filters, only({ industries: filters.industries })) ? filters.industries[0] : null
+  const pick = (f: SearchFilters) => (same(filters, f) ? clearSearch() : setFilters(f, ''))
+  const routeLink = (count: number) => count > 1 && (
+    <button type="button" className="sc-text-btn" onClick={tourResults}><RouteIcon size={14} /> {route && 'tour' in route ? 'Route shown' : 'Route between them'}</button>
+  )
+  const views = { feed: 'Live from Helsinki', missions: 'Discovery missions', directory: 'Startup directory', intown: 'In town this week' } as const
+  return (
+    <section className={`sc-sidebar sc-glass${collapsed ? ' collapsed' : ''}`} aria-label="Startup City">
+      <header className="sc-side-head">
+        <MapPin size={26} className="sc-side-pin" />
+        <div>
+          <h1>Startup City</h1>
+          <p className="sc-muted">{placed.length} startups on the map, Helsinki</p>
+        </div>
+        <button type="button" className="sc-icon sc-collapse" aria-label={collapsed ? 'Open menu' : 'Close menu'} aria-expanded={!collapsed} onClick={() => setCollapsed(!collapsed)}><ChevronDown size={18} /></button>
+      </header>
+      {!collapsed && (panel ? (
+        <div className="sc-side-view">
+          <button type="button" className="sc-back" onClick={() => useCity.setState({ panel: null })}><Back size={16} /> {views[panel]}</button>
+          <div className="sc-side-scroll">{panel === 'feed' ? <Feed /> : panel === 'missions' ? <Missions /> : panel === 'intown' ? <InTown /> : <Directory />}</div>
+        </div>
+      ) : (
+        <div className="sc-side-scroll">
+          <ul className="sc-side-list" role="list">
+            <li>
+              <button type="button" aria-current={!active} onClick={clearSearch}><LayoutGrid size={16} /><span>All startups</span><em>{placed.length}</em></button>
+            </li>
+            {rows.map((row) => {
+              const isActive = same(filters, row.filters)
+              const count = onMap(row.filters)
+              return (
+                <li key={row.id} className={row.id === 'partners' ? 'partner' : ''}>
+                  <button type="button" aria-current={isActive} onClick={() => pick(row.filters)}>{row.icon}<span>{row.label}</span><em>{count}</em></button>
+                  {isActive && <div className="sc-side-hint"><p>{row.hint}</p>{routeLink(count)}</div>}
+                </li>
+              )
+            })}
+            <li>
+              <button type="button" aria-expanded={categoriesOpen || Boolean(activeCategory)} onClick={() => setCategoriesOpen(!categoriesOpen)}><Tag size={16} /><span>Categories</span><ChevronDown size={16} className="sc-chev" /></button>
+              {(categoriesOpen || activeCategory) && (
+                <ul className="sc-side-sub" role="list">
+                  {categories.map((id) => {
+                    const f = only({ industries: [id] })
+                    const count = onMap(f)
+                    return (
+                      <li key={id}>
+                        <button type="button" aria-current={activeCategory === id} onClick={() => pick(f)}><i style={{ background: INDUSTRIES[id].color }} /><span>{INDUSTRIES[id].label}</span><em>{count}</em></button>
+                        {activeCategory === id && <div className="sc-side-hint">{routeLink(count)}</div>}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </li>
+          </ul>
+          <ul className="sc-side-list sc-side-nav" role="list">
+            <li><button type="button" onClick={() => useCity.setState({ panel: 'feed' })}><Newspaper size={16} /><span>Live from Helsinki</span><em>{startups.reduce((n, s) => n + s.news.length, 0)}</em></button></li>
+            <li><button type="button" onClick={() => useCity.setState({ panel: 'intown' })}><Users size={16} /><span>In town this week</span><em>Slush, Junction</em></button></li>
+            <li><button type="button" onClick={() => useCity.setState({ panel: 'missions' })}><Target size={16} /><span>Missions</span><em>{missionProgress(startups, discovered).filter((m) => m.done).length} of 3</em></button></li>
+            <li><button type="button" onClick={() => useCity.setState({ panel: 'directory' })}><List size={16} /><span>Directory</span><em>{startups.filter((s) => s.industry !== 'hub' && s.industry !== 'partner').length}</em></button></li>
+            <li>
+              <label className="sc-side-switch"><Network size={16} /><span>Connections</span><input type="checkbox" role="switch" checked={connectionsOn} onChange={() => toggleConnections()} /></label>
+            </li>
+          </ul>
+        </div>
+      ))}
+      {!collapsed && (
+        <footer className="sc-side-foot">
+          <Clock />
+          <p className="sc-muted">{dataMode === 'live' ? `Live data, read ${relativeDate(meta?.lastLiveAt ?? null)}` : `Data from ${formatDate(meta?.snapshotAt)}`}. Map: OpenStreetMap, City of Helsinki.</p>
+        </footer>
+      )}
+    </section>
+  )
+}
+
+function HowTo() {
+  const mode = useCity((s) => s.mode)
+  const demo = useCity((s) => s.demo)
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('startup-city-howto') === 'done' } catch { return false } })
+  const shortcuts = useCity((s) => s.shortcuts)
+  const panel = useCity((s) => s.panel)
+  useEffect(() => { if (shortcuts) setHidden(false) }, [shortcuts])
+  // A sidebar view such as the directory or the board gets the full height.
+  if (hidden || demo.active || mode === 'street' || panel) return null
+  const close = () => { setHidden(true); try { localStorage.setItem('startup-city-howto', 'done') } catch { /* shown again next visit */ } }
+  const rows: [ReactNode, string][] = mode === 'explorer'
+    ? [[<kbd key="d">Drag</kbd>, 'Move around the city'], [<kbd key="s">Scroll</kbd>, 'Zoom in and out'], [<kbd key="c">Click</kbd>, 'Open a glowing building'], [<kbd key="t">Tab</kbd>, 'Ride the streets']]
+    : [[<><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></>, 'Ride'], [<kbd key="e">E</kbd>, 'Visit the startup in front of you'], [<kbd key="f">F</kbd>, 'Walk or ride'], [<kbd key="t">Tab</kbd>, 'Back to the city view']]
+  return (
+    <section className="sc-howto sc-glass" aria-label="How to explore">
+      <header><h2>How to explore</h2><button type="button" className="sc-icon" aria-label="Hide" onClick={close}><X size={16} /></button></header>
+      <dl>{rows.map(([key, what]) => <div key={what}><dt>{key}</dt><dd>{what}</dd></div>)}</dl>
+      <button type="button" className="sc-primary" onClick={() => { close(); void startDemo() }}><Play size={15} /> Take the 90 second tour</button>
+    </section>
+  )
+}
+
+// Shell
+
+export function App() {
+  useSceneSync()
+  const loaded = useCity((s) => s.loaded)
+  const loadError = useCity((s) => s.loadError)
+  const scene = useCity((s) => s.scene)
+  const mode = useCity((s) => s.mode)
+  const panel = useCity((s) => s.panel)
+  const refresh = useCity((s) => s.refresh)
+  const dataMode = useCity((s) => s.dataMode)
+  const meta = useCity((s) => s.meta)
+  const startups = useCity((s) => s.startups)
+  const discovered = useCity((s) => s.discovered)
+  const connectionsOn = useCity((s) => s.connectionsOn)
+  const near = useCity((s) => s.near)
+  const selectedId = useCity((s) => s.selectedId)
+  const route = useCity((s) => s.route)
+  const toast = useCity((s) => s.toast)
+  const demo = useCity((s) => s.demo)
+  const { setMode, refreshSignals, toggleConnections, select, playCutscene } = useCity.getState()
+  const rootRef = useRef<HTMLDivElement>(null)
+  const nearCompanies = near ? startups.filter((s) => s.location?.buildingId === near) : []
+  const togglePanel = (name: 'feed' | 'missions' | 'directory' | 'intown') => useCity.setState({ panel: panel === name ? null : name })
+  const newsCount = useMemo(() => startups.reduce((n, s) => n + s.news.length, 0), [startups])
+  const missionsDone = missionProgress(startups, discovered).filter((m) => m.done).length
+
+  // The game engine listens for keys on window; typing in our fields must not steer the scooter.
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const stop = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLElement && event.target.closest('input, textarea')) event.stopPropagation()
+    }
+    root.addEventListener('keydown', stop)
+    root.addEventListener('keyup', stop)
+    return () => { root.removeEventListener('keydown', stop); root.removeEventListener('keyup', stop) }
+  }, [])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const state = useCity.getState()
+      const typing = event.target instanceof HTMLElement && event.target.closest('input, textarea')
+      if (!state.scene?.entered || event.repeat || state.cutscene) return
+      if (event.code === 'Escape') {
+        if (typing) { (event.target as HTMLElement).blur(); event.stopImmediatePropagation(); return }
+        if (state.shortcuts) { useCity.setState({ shortcuts: false }); event.stopImmediatePropagation() }
+        else if (state.selectedId) { state.select(null); event.stopImmediatePropagation() }
+        else if (state.panel) { useCity.setState({ panel: null }); event.stopImmediatePropagation() }
+        else if (state.route) { state.clearRoute(); event.stopImmediatePropagation() }
+        else if (state.demo.active) { useCity.setState({ demo: { active: false, step: 0, paused: false } }); event.stopImmediatePropagation() }
+        return
+      }
+      if (typing || event.metaKey || event.ctrlKey || event.altKey) return
+      if (event.code === 'KeyE' && state.mode === 'street' && state.near) {
+        state.select(state.near, null, 'street')
+        event.stopImmediatePropagation()
+      } else if (event.code === 'Tab') {
+        event.preventDefault()
+        state.setMode(state.mode === 'explorer' ? 'street' : 'explorer')
+      } else if (event.key === '?') {
+        event.preventDefault()
+        useCity.setState({ shortcuts: !state.shortcuts })
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    const titleDemo = document.getElementById('sc-title-demo')
+    const begin = () => void startDemo()
+    titleDemo?.addEventListener('click', begin)
+    return () => { window.removeEventListener('keydown', onKey, true); titleDemo?.removeEventListener('click', begin) }
+  }, [])
+
+  // While walking a route, keep it anchored to the rider and notice arrival.
+  useEffect(() => {
+    if (mode !== 'street' || !route || !('targetId' in route) || !scene) return
+    const timer = setInterval(() => {
+      const state = useCity.getState()
+      const target = state.startups.find((s) => s.id === (route as { targetId: string }).targetId)?.location
+      if (!target) return
+      const here = scene.playerPosition()
+      if (Math.hypot(here.x - target.x, here.z - target.z) < 30) {
+        state.navigateTo(null)
+        state.notify('You have arrived. Press E to go in.', 'green')
+      } else state.navigateTo((route as { targetId: string }).targetId)
+    }, 1500)
+    return () => clearInterval(timer)
+  }, [mode, route && 'targetId' in route ? route.targetId : null, scene])
+
+  return (
+    <div id="sc-root" ref={rootRef} data-mode={mode} data-panel-open={selectedId ? 'true' : 'false'} data-labels={useCity((s) => s.labels) ? 'on' : 'off'}>
+      <nav className="sc-tools" aria-label="View">
+        <div className="sc-segmented sc-glass" role="radiogroup" aria-label="Camera mode">
+          <button type="button" role="radio" aria-checked={mode === 'explorer'} onClick={() => setMode('explorer')} title="See the whole city from above (Tab)"><Compass size={16} /> City</button>
+          <button type="button" role="radio" aria-checked={mode === 'street'} onClick={() => setMode('street')} title="Ride and walk the streets (Tab)"><Footprints size={16} /> Street</button>
+        </div>
+        <button type="button" className="sc-primary" disabled={refresh.status === 'loading'} onClick={() => void refreshSignals()} title="Read the latest news and open roles through Context.dev">
+          {refresh.status === 'loading' ? <Loader2 size={16} className="sc-spin" /> : <RefreshCw size={16} />} Refresh startup signals
+        </button>
+      </nav>
+      {SEARCH_ENABLED && <SearchBar />}
+      <div className="sc-left">
+        <Sidebar />
+        <HowTo />
+      </div>
+
+      <AnimatePresence>
+        {refresh.status !== 'idle' && (
+          <motion.div key={refresh.status} className={`sc-refresh-status sc-glass ${refresh.status}`} role="status" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            {refresh.status === 'loading' && <><Loader2 size={16} className="sc-spin" /> Context.dev is reading news and careers pages for {refresh.scope}.</>}
+            {refresh.status === 'success' && <><Check size={16} /> {refresh.message}.</>}
+            {refresh.status === 'error' && <>{refresh.message} <span className="sc-muted">Saved copy from {formatDate(meta?.snapshotAt)}.</span></>}
+            {refresh.status !== 'loading' && <button type="button" className="sc-icon" aria-label="Dismiss" onClick={() => useCity.setState({ refresh: { status: 'idle' } })}><X size={15} /></button>}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
+      <Panel />
+      <ConnectionLegend />
+      <MapControls />
+      <RouteBar />
+      <Shortcuts />
+
+      <div className="sc-bottom">
+        {mode === 'street' && nearCompanies.length > 0 && !selectedId && (
+          <motion.button type="button" className="sc-near sc-glass" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} onClick={() => select(near, null, 'street')}>
+            <kbd>E</kbd> Visit {nearCompanies.find((s) => s.industry === 'hub')?.name ?? nearCompanies[0].name}{nearCompanies.length > 1 ? ` and ${nearCompanies.length - 1} more` : ''}
+          </motion.button>
+        )}
+        <DemoBar />
+      </div>
+      {mode === 'street' && !selectedId && <p className="sc-street-hint">Drag anywhere to steer. Tap a startup's E prompt to visit.</p>}
+
+      <AnimatePresence>
+        {toast && <motion.div key={toast.id} className={`sc-toast sc-glass ${toast.tone}`} role="status" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>{toast.text}</motion.div>}
+      </AnimatePresence>
+      {loaded && loadError && <div className="sc-load-error sc-glass" role="alert">{loadError}</div>}
+      <a className="sc-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Map data OpenStreetMap contributors, buildings City of Helsinki (CC BY 4.0). Company data via Context.dev.</a>
+      <CutscenePlayer />
+    </div>
+  )
+}
