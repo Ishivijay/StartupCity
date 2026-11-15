@@ -1,0 +1,9 @@
+node_modules
+dist
+output
+.git
+.env
+.env.*
+data/map
+data/in-town-posts.json
+*.ods
