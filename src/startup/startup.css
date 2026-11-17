@@ -531,7 +531,7 @@ button[aria-expanded="true"] > .sc-chev { transform: rotate(180deg); }
 .sc-refresh-status { top: 76px !important; }
 .sc-route-bar { top: 76px !important; }
 #sc-root[data-panel-open="true"] .sc-route-bar, #sc-root[data-panel-open="true"] .sc-refresh-status { left: calc(50% - 160px); }
-.sc-bottom { left: calc(50% + 178px); width: min(720px, calc(100vw - 400px)); }
+.sc-bottom { left: calc(50% + 178px); width: min(980px, calc(100vw - 400px)); }
 .sc-attribution { display: none; }
 .sc-clock { position: absolute; }
 
@@ -654,3 +654,15 @@ body.sc-cinema .sc-controls, body.sc-opening .sc-controls { display: none; }
   /* Leave room for the Jump button at street level. */
   #sc-root[data-mode="street"] .sc-controls { align-self: flex-start; max-width: calc(100% - 100px); }
 }
+
+/* All controls sheet */
+.sc-modal.sc-controls-sheet { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; }
+.sc-controls-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 28px; }
+#sc-root .sc-controls-groups h3 { font-size: var(--t-sm); color: var(--sc-accent); margin: 0 0 8px; letter-spacing: 0.02em; }
+.sc-controls-sheet dl div { grid-template-columns: minmax(96px, auto) 1fr !important; }
+.sc-controls-sheet dt { display: flex; flex-wrap: wrap; gap: 3px; }
+#sc-root .sc-controls-sheet kbd { margin: 0; }
+@media (max-width: 720px) { .sc-controls-groups { grid-template-columns: 1fr; } }
+.sc-controls-end button { white-space: nowrap; }
+.sc-controls.flying { border-color: rgb(125 227 188 / 0.45); }
+@media (min-width: 1180px) { .sc-controls ul { flex-wrap: nowrap; } }

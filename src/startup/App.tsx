@@ -143,20 +143,48 @@ function SettingsButton() {
   )
 }
 
-const SHORTCUTS: [string, string][] = [
-  ['Drag', 'Move the map'], ['Scroll or pinch', 'Zoom towards the cursor'], ['Double-click', 'Zoom in there'], ['Right-drag', 'Turn and tilt'],
-  ['+ / −', 'Zoom'], ['W A S D', 'Move the map, or ride at street level'], ['Q / E', 'Turn the map'], ['Tab', 'Switch city view and street level'],
-  ['E', 'Visit the startup in front of you'], ['F', 'Walk or ride'], ['Esc', 'Close, clear the route, or skip a cutscene'], ['?', 'This list'],
+/** Every control, grouped by where it applies. Keys are written as they appear on the keyboard. */
+const CONTROLS: { id: string; title: string; rows: [string[], string][] }[] = [
+  { id: 'explorer', title: 'City view', rows: [
+    [['Drag'], 'Move the map'], [['Right-drag'], 'Turn and tilt (or Shift-drag)'], [['Scroll'], 'Zoom towards the cursor'],
+    [['Double-click'], 'Zoom in there'], [['+', '−'], 'Zoom in and out'], [['W', 'A', 'S', 'D'], 'Move the map (arrow keys too)'],
+    [['Q', 'E'], 'Turn the map'], [['Click'], 'Open a glowing building'], [['Tab'], 'Go to street level'],
+  ] },
+  { id: 'street', title: 'Street level', rows: [
+    [['W'], 'Ride faster (or up arrow)'], [['S'], 'Brake (or down arrow)'], [['A', 'D'], 'Steer (or left and right arrows)'],
+    [['Space'], 'Jump'], [['F'], 'Get off and walk, or back on the scooter'], [['E'], 'Visit the startup in front of you'],
+    [['Drag'], 'Look around'], [['Scroll'], 'Camera closer or further'], [['Tab'], 'Back to the city view'],
+  ] },
+  { id: 'fly', title: 'Flying', rows: [
+    [['Space', 'Space', 'Space'], 'Tap three times quickly to open the drone wings'], [['Hold Space'], 'Climb'],
+    [['Let go'], 'Glide down'], [['W', 'A', 'D'], 'Fly faster and steer'], [['Shift'], 'Trick in the air'], [['Land'], 'The wings fold away'],
+  ] },
+  { id: 'anywhere', title: 'Anywhere', rows: [
+    [['M'], 'Sound on or off'], [['?'], 'This list'], [['Esc'], 'Close, clear the route, or leave'],
+  ] },
+  { id: 'cutscene', title: 'Cutscenes', rows: [
+    [['Space'], 'Pause or play'], [['→'], 'Next line'], [['Esc'], 'Skip'],
+  ] },
 ]
 
 function Shortcuts() {
   const open = useCity((s) => s.shortcuts)
+  const mode = useCity((s) => s.mode)
   if (!open) return null
+  // The current view's controls come first.
+  const groups = [...CONTROLS].sort((a, b) => Number(b.id === mode || (mode === 'street' && b.id === 'fly')) - Number(a.id === mode || (mode === 'street' && a.id === 'fly')))
   return (
     <div className="sc-modal-backdrop" onPointerDown={() => useCity.setState({ shortcuts: false })}>
-      <section className="sc-modal sc-glass" role="dialog" aria-label="Keyboard shortcuts" onPointerDown={(event) => event.stopPropagation()}>
-        <header><h2>Keyboard and mouse</h2><button type="button" className="sc-icon" aria-label="Close" onClick={() => useCity.setState({ shortcuts: false })}><X size={16} /></button></header>
-        <dl>{SHORTCUTS.map(([key, what]) => <div key={key}><dt><kbd>{key}</kbd></dt><dd>{what}</dd></div>)}</dl>
+      <section className="sc-modal sc-controls-sheet sc-glass" role="dialog" aria-label="All controls" onPointerDown={(event) => event.stopPropagation()}>
+        <header><h2>All controls</h2><button type="button" className="sc-icon" aria-label="Close" onClick={() => useCity.setState({ shortcuts: false })}><X size={16} /></button></header>
+        <div className="sc-controls-groups">
+          {groups.map((group) => (
+            <section key={group.id}>
+              <h3>{group.title}</h3>
+              <dl>{group.rows.map(([keys, what]) => <div key={what}><dt>{keys.map((k, i) => <kbd key={i}>{k}</kbd>)}</dt><dd>{what}</dd></div>)}</dl>
+            </section>
+          ))}
+        </div>
       </section>
     </div>
   )
@@ -719,24 +747,34 @@ function ControlsBar() {
   const cutscene = useCity((s) => s.cutscene)
   const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('startup-city-controls') === 'hidden' } catch { return false } })
   const [touch] = useState(() => window.matchMedia('(pointer: coarse)').matches)
+  // In the air, the bar switches to the flying controls.
+  const [flying, setFlying] = useState(false)
+  useEffect(() => {
+    if (mode !== 'street') { setFlying(false); return }
+    return window.__webworldEngine?.subscribe((snapshot: { flying?: boolean }) => setFlying(Boolean(snapshot.flying)))
+  }, [mode])
   if (demo.active || cutscene) return null
   const remember = (value: boolean) => { setHidden(value); try { localStorage.setItem('startup-city-controls', value ? 'hidden' : 'shown') } catch { /* lasts for this visit */ } }
   if (hidden) {
     return <button type="button" className="sc-controls-show" onClick={() => remember(false)}><Keyboard size={14} /> Controls</button>
   }
   const keys = (...k: string[]) => <span className="sc-keys">{k.map((key) => <kbd key={key}>{key}</kbd>)}</span>
-  const items: [ReactNode, string][] = mode === 'street'
+  const items: [ReactNode, string][] = mode === 'street' && flying
     ? touch
-      ? [[keys('Drag'), 'Steer'], [keys('E'), 'Visit'], [keys('City'), 'Map']]
-      : [[keys('W', 'A', 'S', 'D'), 'Ride'], [keys('F'), 'Walk'], [keys('E'), 'Visit'], [keys('Tab'), 'City view'], [keys('M'), 'Sound']]
+      ? [[keys('Hold Jump'), 'Climb'], [keys('Let go'), 'Glide'], [keys('Drag'), 'Steer']]
+      : [[keys('Hold Space'), 'Climb'], [keys('Let go'), 'Glide down'], [keys('W'), 'Faster'], [keys('A', 'D'), 'Steer'], [keys('Shift'), 'Trick'], [keys('Land'), 'Wings fold']]
+    : mode === 'street'
+    ? touch
+      ? [[keys('Drag'), 'Steer'], [keys('Jump'), 'Jump'], [keys('Jump ×3'), 'Fly'], [keys('E'), 'Visit']]
+      : [[keys('W', 'A', 'S', 'D'), 'Ride'], [keys('Space'), 'Jump'], [keys('Space ×3'), 'Fly'], [keys('F'), 'Walk'], [keys('E'), 'Visit'], [keys('Tab'), 'City view']]
     : touch
       ? [[keys('Drag'), 'Move'], [keys('Pinch'), 'Zoom'], [keys('Tap'), 'Open']]
-      : [[keys('Drag'), 'Move'], [keys('Scroll'), 'Zoom'], [keys('Right-drag'), 'Turn'], [keys('Click'), 'Open'], [keys('Tab'), 'Ride the streets']]
+      : [[keys('Drag'), 'Move'], [keys('Scroll'), 'Zoom'], [keys('Right-drag'), 'Turn'], [keys('Click'), 'Open a building'], [keys('Tab'), 'Street level']]
   return (
-    <div className="sc-controls" role="note" aria-label="Controls">
+    <div className={`sc-controls${flying ? ' flying' : ''}`} role="note" aria-label={flying ? 'Flying controls' : 'Controls'}>
       <ul>{items.map(([key, what]) => <li key={what}>{key}<span>{what}</span></li>)}</ul>
       <span className="sc-controls-end">
-        {!touch && <button type="button" onClick={() => useCity.setState({ shortcuts: true })} title="Every shortcut"><kbd>?</kbd> All</button>}
+        {!touch && <button type="button" className="sc-controls-all" onClick={(event) => { event.currentTarget.blur(); useCity.setState({ shortcuts: true }) }} title="Every key and mouse control (?)"><Keyboard size={14} /> All controls</button>}
         {mode === 'explorer' && <button type="button" className="sc-controls-tour" onClick={() => void startDemo()}><Play size={13} /> Tour</button>}
         <button type="button" className="sc-controls-hide" aria-label="Hide controls" title="Hide controls" onClick={() => remember(true)}><X size={14} /></button>
       </span>
