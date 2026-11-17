@@ -712,25 +712,35 @@ function Sidebar() {
   )
 }
 
-function HowTo() {
+/** Always-visible controls for the current view, in a quiet bar at the bottom of the screen. */
+function ControlsBar() {
   const mode = useCity((s) => s.mode)
   const demo = useCity((s) => s.demo)
-  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('startup-city-howto') === 'done' } catch { return false } })
-  const shortcuts = useCity((s) => s.shortcuts)
-  const panel = useCity((s) => s.panel)
-  useEffect(() => { if (shortcuts) setHidden(false) }, [shortcuts])
-  // A sidebar view such as the directory or the board gets the full height.
-  if (hidden || demo.active || mode === 'street' || panel) return null
-  const close = () => { setHidden(true); try { localStorage.setItem('startup-city-howto', 'done') } catch { /* shown again next visit */ } }
-  const rows: [ReactNode, string][] = mode === 'explorer'
-    ? [[<kbd key="d">Drag</kbd>, 'Move around the city'], [<kbd key="s">Scroll</kbd>, 'Zoom in and out'], [<kbd key="c">Click</kbd>, 'Open a glowing building'], [<kbd key="t">Tab</kbd>, 'Ride the streets']]
-    : [[<><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></>, 'Ride'], [<kbd key="e">E</kbd>, 'Visit the startup in front of you'], [<kbd key="f">F</kbd>, 'Walk or ride'], [<kbd key="t">Tab</kbd>, 'Back to the city view']]
+  const cutscene = useCity((s) => s.cutscene)
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('startup-city-controls') === 'hidden' } catch { return false } })
+  const [touch] = useState(() => window.matchMedia('(pointer: coarse)').matches)
+  if (demo.active || cutscene) return null
+  const remember = (value: boolean) => { setHidden(value); try { localStorage.setItem('startup-city-controls', value ? 'hidden' : 'shown') } catch { /* lasts for this visit */ } }
+  if (hidden) {
+    return <button type="button" className="sc-controls-show" onClick={() => remember(false)}><Keyboard size={14} /> Controls</button>
+  }
+  const keys = (...k: string[]) => <span className="sc-keys">{k.map((key) => <kbd key={key}>{key}</kbd>)}</span>
+  const items: [ReactNode, string][] = mode === 'street'
+    ? touch
+      ? [[keys('Drag'), 'Steer'], [keys('E'), 'Visit'], [keys('City'), 'Map']]
+      : [[keys('W', 'A', 'S', 'D'), 'Ride'], [keys('F'), 'Walk'], [keys('E'), 'Visit'], [keys('Tab'), 'City view'], [keys('M'), 'Sound']]
+    : touch
+      ? [[keys('Drag'), 'Move'], [keys('Pinch'), 'Zoom'], [keys('Tap'), 'Open']]
+      : [[keys('Drag'), 'Move'], [keys('Scroll'), 'Zoom'], [keys('Right-drag'), 'Turn'], [keys('Click'), 'Open'], [keys('Tab'), 'Ride the streets']]
   return (
-    <section className="sc-howto sc-glass" aria-label="How to explore">
-      <header><h2>How to explore</h2><button type="button" className="sc-icon" aria-label="Hide" onClick={close}><X size={16} /></button></header>
-      <dl>{rows.map(([key, what]) => <div key={what}><dt>{key}</dt><dd>{what}</dd></div>)}</dl>
-      <button type="button" className="sc-primary" onClick={() => { close(); void startDemo() }}><Play size={15} /> Take the 90 second tour</button>
-    </section>
+    <div className="sc-controls" role="note" aria-label="Controls">
+      <ul>{items.map(([key, what]) => <li key={what}>{key}<span>{what}</span></li>)}</ul>
+      <span className="sc-controls-end">
+        {!touch && <button type="button" onClick={() => useCity.setState({ shortcuts: true })} title="Every shortcut"><kbd>?</kbd> All</button>}
+        {mode === 'explorer' && <button type="button" className="sc-controls-tour" onClick={() => void startDemo()}><Play size={13} /> Tour</button>}
+        <button type="button" className="sc-controls-hide" aria-label="Hide controls" title="Hide controls" onClick={() => remember(true)}><X size={14} /></button>
+      </span>
+    </div>
   )
 }
 
@@ -836,7 +846,6 @@ export function App() {
       {SEARCH_ENABLED && <SearchBar />}
       <div className="sc-left">
         <Sidebar />
-        <HowTo />
       </div>
 
       <AnimatePresence>
@@ -864,8 +873,8 @@ export function App() {
           </motion.button>
         )}
         <DemoBar />
+        <ControlsBar />
       </div>
-      {mode === 'street' && !selectedId && <p className="sc-street-hint">Drag anywhere to steer. Tap a startup's E prompt to visit.</p>}
 
       <AnimatePresence>
         {toast && <motion.div key={toast.id} className={`sc-toast sc-glass ${toast.tone}`} role="status" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>{toast.text}</motion.div>}

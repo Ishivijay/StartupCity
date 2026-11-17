@@ -630,3 +630,27 @@ button[aria-expanded="true"] > .sc-chev { transform: rotate(180deg); }
 .sc-intown-consent { align-items: flex-start !important; line-height: 1.45; }
 .sc-intown-consent input { flex: none; margin-top: 2px; }
 .sc-intown-error { color: #ff9b8a; font-size: var(--t-sm); }
+
+/* Controls bar */
+.sc-controls { display: flex; align-items: center; gap: 6px; max-width: 100%; padding: 6px 6px 6px 14px; border-radius: 999px; background: rgb(6 16 20 / 0.42); border: 1px solid rgb(190 230 220 / 0.14); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); pointer-events: auto; color: #d6e5e0; }
+.sc-controls ul { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0; padding: 0; list-style: none; font-size: var(--t-sm); }
+.sc-controls li { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.sc-controls li > span:last-child { color: #b9ccc6; }
+.sc-keys { display: inline-flex; gap: 2px; }
+#sc-root .sc-controls kbd { margin: 0; background: rgb(255 255 255 / 0.08); border-color: rgb(255 255 255 / 0.14); font-size: 12px; }
+.sc-controls-end { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding-left: 8px; border-left: 1px solid rgb(190 230 220 / 0.14); }
+.sc-controls-end button, .sc-controls-show { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border: 0; border-radius: 999px; background: transparent; color: #cfe2dc !important; font: 550 var(--t-sm) var(--sc-font); cursor: pointer; }
+.sc-controls-end button:hover, .sc-controls-show:hover { background: rgb(255 255 255 / 0.08); }
+.sc-controls-end .sc-controls-tour { color: var(--sc-accent) !important; }
+.sc-controls-end .sc-controls-hide { padding: 5px; }
+.sc-controls-show { pointer-events: auto; background: rgb(6 16 20 / 0.42); border: 1px solid rgb(190 230 220 / 0.14); backdrop-filter: blur(14px); }
+body.sc-cinema .sc-controls, body.sc-opening .sc-controls { display: none; }
+@media (max-width: 720px) {
+  .sc-controls { padding: 4px 4px 4px 10px; }
+  .sc-controls ul { flex-wrap: nowrap; gap: 10px; font-size: 13px; }
+  .sc-controls li:nth-child(n+4) { display: none; }
+  .sc-controls-end { margin-left: 2px; padding-left: 4px; }
+  #sc-root .sc-map-controls { bottom: 136px; }
+  /* Leave room for the Jump button at street level. */
+  #sc-root[data-mode="street"] .sc-controls { align-self: flex-start; max-width: calc(100% - 100px); }
+}

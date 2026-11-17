@@ -182,10 +182,8 @@ try {
   check("Tab returns to the City Explorer", (await state(page)).mode === "explorer");
 
   // Guided demo with presenter controls
-  await page.evaluate(() => { try { localStorage.removeItem("startup-city-howto") } catch {} });
-  await page.evaluate(() => window.__startupCity.store.setState({ shortcuts: true }));
-  await page.keyboard.press("Escape");
-  await page.click(".sc-howto >> text=Take the 90 second tour");
+  check("the controls bar shows the city view keys", (await page.textContent(".sc-controls")).includes("Ride the streets"));
+  await page.click(".sc-controls-tour");
   await page.waitForSelector(".sc-demo");
   check("the demo starts on step 1 of 9", (await page.textContent(".sc-demo")).includes("1 of 9"));
   await page.click('button[aria-label="Next step"]'); await page.click('button[aria-label="Next step"]');
