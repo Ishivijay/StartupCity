@@ -145,7 +145,9 @@ export const useCity = create<State>((set, get) => ({
   demo: { active: false, step: 0, paused: false },
   toast: null,
   cutscene: null,
-  time: { live: true, minutes: 13 * 60, season: 'today', lapse: false },
+  // Every visit opens at night, so the northern lights are up for the opening flight.
+  // The clock menu switches to the real time of day.
+  time: { live: false, minutes: 22 * 60 + 30, season: 'today', lapse: false },
   graphics: (() => { try { return (localStorage.getItem('startup-city-graphics') as Graphics) || 'auto' } catch { return 'auto' } })(),
   labels: (() => { try { return localStorage.getItem('startup-city-labels') !== 'off' } catch { return true } })(),
   setLabels(on) {

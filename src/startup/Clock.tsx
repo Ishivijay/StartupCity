@@ -69,7 +69,7 @@ export function Clock() {
         )}
       </AnimatePresence>
       <button type="button" className="sc-clock-pill sc-glass" aria-expanded={open} onClick={() => setOpen(!open)} title="Change the time of day">
-        <Icon size={16} /> {formatClock(shown.minutes)} <span className="sc-muted">{time.lapse ? 'time-lapse' : time.live ? 'now' : time.season === 'summer' ? 'midsummer' : 'set'}</span>
+        <Icon size={16} /> {formatClock(shown.minutes)} <span className="sc-muted">{time.lapse ? 'time-lapse' : time.live ? 'now' : time.season === 'summer' ? 'midsummer' : 'Helsinki'}</span>
       </button>
     </div>
   )

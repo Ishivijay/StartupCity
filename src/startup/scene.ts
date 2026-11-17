@@ -89,7 +89,7 @@ export class CityScene {
   onRideStart: () => void = () => {}
   onTier: (tier: Tier) => void = () => {}
   /** Read every frame; the store owns the visitor's time settings. */
-  timeSettings: () => TimeSettings = () => ({ live: true, minutes: 720, season: 'today', lapse: false })
+  timeSettings: () => TimeSettings = () => ({ live: false, minutes: 22 * 60 + 30, season: 'today', lapse: false })
   /** Current Helsinki clock in minutes, and the sun, as shown. */
   clock = { minutes: 720, elevation: 0, phase: 'afternoon' as Phase }
   private lapseMinutes: number | null = null

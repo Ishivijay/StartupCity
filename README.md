@@ -25,7 +25,7 @@ Startup City answers it as a place you can explore instead of a list you scroll.
 | ![The city at night with startups lit](docs/images/city-night.jpg) | ![A company profile](docs/images/profile.jpg) |
 | **Explore the city.** 143 Helsinki startups, 66 placed on their real buildings. Drag, zoom and turn like a web map. | **Open any company.** Description, founders, funding, investors, open roles and news, each with its source. |
 | ![Helsinki by day](docs/images/city-day.jpg) | ![A narrated cutscene](docs/images/cutscene.jpg) |
-| **Day and night.** The sun follows its real path over Helsinki. Facades by day, the northern lights after dark. | **Watch the news.** Gemini writes and voices short cutscenes from the records: an intro, a morning briefing, a company story. |
+| **Day and night.** It opens at night under the northern lights; switch to the real clock and the sun follows its real path over Helsinki. | **Watch the news.** Gemini writes and voices short cutscenes from the records: an intro, a morning briefing, a company story. |
 | ![Street level with a route on the minimap](docs/images/street.jpg) | ![Junction 2026 partners highlighted](docs/images/partners.jpg) |
 | **Go to street level.** Ride or walk to a startup with a route on the minimap. | **Meet the partners.** All 39 Junction 2026 partners, with five offices on the map. |
 
