@@ -23837,10 +23837,12 @@ var ld = 10,
   ud = [],
   dd = 0;
 function fd() {
-  if (Z.state !== `ride` || X.wings || X.walking) return;
+  if (Z.state !== `ride` || X.wings) return;
   let e = performance.now();
   for (ud.push(e); ud.length && e - ud[0] > 1100; ) ud.shift();
+  /* Three quick taps open the wings. On foot, that first climbs back on the scooter. */
   ud.length >= 3 &&
+    (!X.walking || ((X.grounded = !0), X.setWalking(!1), Y(`btn-walk`).classList.remove(`on`), !X.walking)) &&
     ((ud.length = 0),
     (X.wings = !0),
     X.takeOff(11),

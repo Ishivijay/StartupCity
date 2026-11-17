@@ -182,7 +182,7 @@ try {
   check("Tab returns to the City Explorer", (await state(page)).mode === "explorer");
 
   // Guided demo with presenter controls
-  check("the controls bar shows the city view keys", (await page.textContent(".sc-controls")).includes("Street level"));
+  check("the controls bar shows the city view keys", (await page.textContent(".sc-controls")).includes("Open a building"));
   await page.click(".sc-controls-tour");
   await page.waitForSelector(".sc-demo");
   check("the demo starts on step 1 of 9", (await page.textContent(".sc-demo")).includes("1 of 9"));

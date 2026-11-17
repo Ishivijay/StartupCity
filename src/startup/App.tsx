@@ -146,24 +146,18 @@ function SettingsButton() {
 /** Every control, grouped by where it applies. Keys are written as they appear on the keyboard. */
 const CONTROLS: { id: string; title: string; rows: [string[], string][] }[] = [
   { id: 'explorer', title: 'City view', rows: [
-    [['Drag'], 'Move the map'], [['Right-drag'], 'Turn and tilt (or Shift-drag)'], [['Scroll'], 'Zoom towards the cursor'],
-    [['Double-click'], 'Zoom in there'], [['+', '−'], 'Zoom in and out'], [['W', 'A', 'S', 'D'], 'Move the map (arrow keys too)'],
-    [['Q', 'E'], 'Turn the map'], [['Click'], 'Open a glowing building'], [['Tab'], 'Go to street level'],
+    [['Drag'], 'Move the map'], [['Right-drag'], 'Turn and tilt'], [['Scroll'], 'Zoom'],
+    [['Click'], 'Open a glowing building'], [['Tab'], 'Go to street level'],
   ] },
   { id: 'street', title: 'Street level', rows: [
-    [['W'], 'Ride faster (or up arrow)'], [['S'], 'Brake (or down arrow)'], [['A', 'D'], 'Steer (or left and right arrows)'],
-    [['Space'], 'Jump'], [['F'], 'Get off and walk, or back on the scooter'], [['E'], 'Visit the startup in front of you'],
-    [['Drag'], 'Look around'], [['Scroll'], 'Camera closer or further'], [['Tab'], 'Back to the city view'],
+    [['W', 'A', 'S', 'D'], 'Ride, brake and steer'], [['Space'], 'Jump'], [['F'], 'Walk or get back on'],
+    [['E'], 'Visit the startup in front of you'], [['Tab'], 'Back to the city view'],
   ] },
-  { id: 'fly', title: 'Flying', rows: [
-    [['Space', 'Space', 'Space'], 'Tap three times quickly to open the drone wings'], [['Hold Space'], 'Climb'],
-    [['Let go'], 'Glide down'], [['W', 'A', 'D'], 'Fly faster and steer'], [['Shift'], 'Trick in the air'], [['Land'], 'The wings fold away'],
+  { id: 'fly', title: 'Flying (scooter or on foot)', rows: [
+    [['Space', 'Space', 'Space'], 'Tap three times to open the wings'], [['Hold Space'], 'Climb'], [['A', 'D'], 'Steer'],
   ] },
   { id: 'anywhere', title: 'Anywhere', rows: [
-    [['M'], 'Sound on or off'], [['?'], 'This list'], [['Esc'], 'Close, clear the route, or leave'],
-  ] },
-  { id: 'cutscene', title: 'Cutscenes', rows: [
-    [['Space'], 'Pause or play'], [['→'], 'Next line'], [['Esc'], 'Skip'],
+    [['M'], 'Sound on or off'], [['Esc'], 'Close or skip'],
   ] },
 ]
 
@@ -761,15 +755,15 @@ function ControlsBar() {
   const keys = (...k: string[]) => <span className="sc-keys">{k.map((key) => <kbd key={key}>{key}</kbd>)}</span>
   const items: [ReactNode, string][] = mode === 'street' && flying
     ? touch
-      ? [[keys('Hold Jump'), 'Climb'], [keys('Let go'), 'Glide'], [keys('Drag'), 'Steer']]
-      : [[keys('Hold Space'), 'Climb'], [keys('Let go'), 'Glide down'], [keys('W'), 'Faster'], [keys('A', 'D'), 'Steer'], [keys('Shift'), 'Trick'], [keys('Land'), 'Wings fold']]
+      ? [[keys('Hold Jump'), 'Climb'], [keys('Drag'), 'Steer']]
+      : [[keys('Hold Space'), 'Climb'], [keys('A', 'D'), 'Steer']]
     : mode === 'street'
     ? touch
-      ? [[keys('Drag'), 'Steer'], [keys('Jump'), 'Jump'], [keys('Jump ×3'), 'Fly'], [keys('E'), 'Visit']]
-      : [[keys('W', 'A', 'S', 'D'), 'Ride'], [keys('Space'), 'Jump'], [keys('Space ×3'), 'Fly'], [keys('F'), 'Walk'], [keys('E'), 'Visit'], [keys('Tab'), 'City view']]
+      ? [[keys('Drag'), 'Steer'], [keys('Jump ×3'), 'Fly'], [keys('E'), 'Visit']]
+      : [[keys('W', 'A', 'S', 'D'), 'Ride'], [keys('Space ×3'), 'Fly'], [keys('E'), 'Visit']]
     : touch
       ? [[keys('Drag'), 'Move'], [keys('Pinch'), 'Zoom'], [keys('Tap'), 'Open']]
-      : [[keys('Drag'), 'Move'], [keys('Scroll'), 'Zoom'], [keys('Right-drag'), 'Turn'], [keys('Click'), 'Open a building'], [keys('Tab'), 'Street level']]
+      : [[keys('Drag'), 'Move'], [keys('Scroll'), 'Zoom'], [keys('Click'), 'Open a building']]
   return (
     <div className={`sc-controls${flying ? ' flying' : ''}`} role="note" aria-label={flying ? 'Flying controls' : 'Controls'}>
       <ul>{items.map(([key, what]) => <li key={what}>{key}<span>{what}</span></li>)}</ul>
