@@ -743,9 +743,12 @@ function ControlsBar() {
   const [touch] = useState(() => window.matchMedia('(pointer: coarse)').matches)
   // In the air, the bar switches to the flying controls.
   const [flying, setFlying] = useState(false)
+  const [walking, setWalking] = useState(false)
   useEffect(() => {
-    if (mode !== 'street') { setFlying(false); return }
-    return window.__webworldEngine?.subscribe((snapshot: { flying?: boolean }) => setFlying(Boolean(snapshot.flying)))
+    if (mode !== 'street') { setFlying(false); setWalking(false); return }
+    return window.__webworldEngine?.subscribe((snapshot: { flying?: boolean; walking?: boolean }) => {
+      setFlying(Boolean(snapshot.flying)); setWalking(Boolean(snapshot.walking))
+    })
   }, [mode])
   if (demo.active || cutscene) return null
   const remember = (value: boolean) => { setHidden(value); try { localStorage.setItem('startup-city-controls', value ? 'hidden' : 'shown') } catch { /* lasts for this visit */ } }
@@ -760,7 +763,9 @@ function ControlsBar() {
     : mode === 'street'
     ? touch
       ? [[keys('Drag'), 'Steer'], [keys('Jump ×3'), 'Fly'], [keys('E'), 'Visit']]
-      : [[keys('W', 'A', 'S', 'D'), 'Ride'], [keys('Space ×3'), 'Fly'], [keys('E'), 'Visit']]
+      : walking
+        ? [[keys('W', 'A', 'S', 'D'), 'Walk'], [keys('F'), 'Ride again'], [keys('Space ×3'), 'Fly'], [keys('E'), 'Visit']]
+        : [[keys('W', 'A', 'S', 'D'), 'Ride'], [keys('F'), 'Get off and walk'], [keys('Space ×3'), 'Fly'], [keys('E'), 'Visit']]
     : touch
       ? [[keys('Drag'), 'Move'], [keys('Pinch'), 'Zoom'], [keys('Tap'), 'Open']]
       : [[keys('Drag'), 'Move'], [keys('Scroll'), 'Zoom'], [keys('Click'), 'Open a building']]
