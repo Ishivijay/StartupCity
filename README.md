@@ -2,7 +2,7 @@
 
 **Helsinki's startup scene as a living 3D city.** Fly over Helsinki under the northern lights, see every startup at its real address, and find out in one click who they are, whether they are hiring, and what was published about them this week.
 
-<p align="center"><b><a href="https://startup-city-49829111747.europe-west2.run.app">Open the live app</a></b> · <a href="https://youtu.be/3YMHtbJ9gyg">Watch the demo video</a></p>
+<p align="center"><b><a href="https://startupcity.ai.studio">Open the live app</a></b> · <a href="https://youtu.be/3YMHtbJ9gyg">Watch the demo video</a></p>
 
 ![Startup City: the opening flight over Helsinki](docs/images/hero.gif)
 
