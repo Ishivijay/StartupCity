@@ -37,7 +37,7 @@ There are also filters for hiring, recently funded and in the news, a live news 
 
 ## Try it in a minute
 
-The quickest way is the [live app](https://startup-city-49829111747.europe-west2.run.app) (the first visit can take a few seconds while the server wakes up). To run it yourself:
+The quickest way is the [live app](https://startupcity.ai.studio). To run it yourself:
 
 You need [Node.js](https://nodejs.org) 22.12 or newer.
 
